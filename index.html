@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario - Drogueria NISSI</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',sans-serif;background:#f0f4f8;color:#333;}
+.login-container{display:flex;justify-content:center;align-items:center;min-height:100vh;background:linear-gradient(135deg,#1a5276,#2e86c1);}
+.login-box{background:white;padding:40px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.3);width:380px;text-align:center;}
+.login-box h1{color:#1a5276;font-size:24px;margin-bottom:5px;}
+.login-box p{color:#666;margin-bottom:25px;font-size:14px;}
+.login-logo{font-size:48px;margin-bottom:15px;}
+.form-group{margin-bottom:15px;text-align:left;}
+.form-group label{display:block;margin-bottom:5px;color:#555;font-size:13px;font-weight:600;}
+.form-group input,.form-group select{width:100%;padding:10px;border:2px solid #ddd;border-radius:6px;font-size:14px;transition:border-color .3s;}
+.form-group input:focus{outline:none;border-color:#2e86c1;}
+.btn{width:100%;padding:12px;background:#1a5276;color:white;border:none;border-radius:6px;font-size:15px;cursor:pointer;transition:background .3s;}
+.btn:hover{background:#2e86c1;}
+.alert{padding:10px;border-radius:6px;margin-bottom:15px;font-size:13px;}
+.alert-danger{background:#fde8e8;color:#c0392b;border:1px solid #e74c3c;}
+header{background:linear-gradient(135deg,#1a5276,#2e86c1);color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;}
+header h1{font-size:20px;}
+.header-info{font-size:13px;text-align:right;}
+.main-content{padding:20px;}
+.tabs{display:flex;gap:5px;margin-bottom:20px;border-bottom:2px solid #ddd;padding-bottom:0;}
+.tab-btn{padding:10px 20px;border:none;background:none;cursor:pointer;font-size:14px;color:#666;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .3s;}
+.tab-btn.active{color:#1a5276;border-bottom-color:#1a5276;font-weight:600;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+.card{background:white;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.1);margin-bottom:20px;}
+.card h2{color:#1a5276;margin-bottom:15px;font-size:18px;}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px;}
+.form-grid .form-group{margin-bottom:0;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+th{background:#1a5276;color:white;padding:10px 8px;text-align:left;}
+td{padding:8px;border-bottom:1px solid #eee;}
+tr:hover{background:#f8f9fa;}
+.badge{padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;}
+.badge-danger{background:#fde8e8;color:#c0392b;}
+.badge-warning{background:#fef9e7;color:#d35400;}
+.badge-success{background:#e8f8f5;color:#1e8449;}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:15px;margin-bottom:20px;}
+.stat-card{background:white;padding:20px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.1);text-align:center;}
+.stat-card h3{font-size:32px;color:#1a5276;margin-bottom:5px;}
+.stat-card p{font-size:13px;color:#666;}
+.loading{text-align:center;padding:40px;color:#666;}
+.spinner{display:inline-block;width:40px;height:40px;border:4px solid #f3f3f3;border-top:4px solid #1a5276;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:15px;}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+.sync-bar{background:#e8f4fd;padding:10px 20px;display:flex;align-items:center;gap:10px;font-size:13px;color:#1a5276;}
+.online-dot{width:10px;height:10px;background:#27ae60;border-radius:50%;display:inline-block;}
+.offline-dot{width:10px;height:10px;background:#e74c3c;border-radius:50%;display:inline-block;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginSection" class="login-container">
+<div class="login-box">
+  <div class="login-logo">💊</div>
+  <h1>DROGUERÍA NISSI</h1>
+  <p>Sistema de Inventario en Línea</p>
+  <div id="loginError" class="alert alert-danger" style="display:none"></div>
+  <div class="form-group">
+    <label>Usuario</label>
+    <input type="text" id="loginUser" placeholder="Ingrese usuario" autocomplete="username">
+  </div>
+  <div class="form-group">
+    <label>Contraseña</label>
+    <input type="password" id="loginPass" placeholder="Ingrese contraseña" autocomplete="current-password">
+  </div>
+  <button class="btn" onclick="login()">Iniciar Sesión</button>
+</div>
+</div>
+
+<!-- APP PRINCIPAL -->
+<div id="appSection" style="display:none">
+  <header>
+    <div>
+      <h1>💊 DROGUERÍA NISSI</h1>
+      <div style="font-size:12px;opacity:0.8">Sistema de Inventario Multi-Usuario</div>
+    </div>
+    <div class="header-info">
+      <div id="userInfo">Usuario</div>
+      <button onclick="logout()" style="margin-top:5px;padding:5px 15px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.5);color:white;border-radius:4px;cursor:pointer;font-size:12px;">Cerrar Sesión</button>
+    </div>
+  </header>
+  
+  <div class="sync-bar">
+    <span id="syncDot" class="online-dot"></span>
+    <span id="syncStatus">Conectando con base de datos...</span>
+    <span style="margin-left:auto;font-size:12px" id="lastSync"></span>
+  </div>
+
+  <div class="main-content">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="showTab('dashboard')">📊 Dashboard</button>
+      <button class="tab-btn" onclick="showTab('registro')">➕ Nuevo Registro</button>
+      <button class="tab-btn" onclick="showTab('inventario')">📦 Inventario</button>
+      <button class="tab-btn" onclick="showTab('movimientos')">📋 Movimientos</button>
+      <button class="tab-btn" onclick="showTab('alertas')" id="tabAlertas">⚠️ Alertas</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card"><h3 id="statProductos">-</h3><p>Productos Activos</p></div>
+        <div class="stat-card"><h3 id="statMovimientos">-</h3><p>Total Movimientos</p></div>
+        <div class="stat-card"><h3 id="statVencidos" style="color:#e74c3c">-</h3><p>Productos Vencidos</p></div>
+        <div class="stat-card"><h3 id="statPorVencer" style="color:#e67e22">-</h3><p>Por Vencer (6 meses)</p></div>
+      </div>
+      <div class="card">
+        <h2>Últimos Movimientos</h2>
+        <div id="ultimosMovimientos"><div class="loading"><div class="spinner"></div><p>Cargando...</p></div></div>
+      </div>
+    </div>
+
+    <!-- REGISTRO -->
+    <div id="tab-registro" class="tab-content">
+      <div class="card">
+        <h2>➕ Registrar Movimiento</h2>
+        <div id="regAlert" class="alert" style="display:none"></div>
+        <div class="form-grid">
+          <div class="form-group"><label>Fecha *</label><input type="date" id="regFecha"></div>
+          <div class="form-group"><label>N° Factura</label><input type="text" id="regFactura" placeholder="FAC-001"></div>
+          <div class="form-group"><label>Tipo</label>
+            <select id="regTipo">
+              <option value="entrada">Entrada (Compra)</option>
+              <option value="salida">Salida (Venta/Uso)</option>
+              <option value="ajuste">Ajuste/Corrección</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Proveedor/Cliente</label>
+            <input type="text" id="regProveedor" list="proveedoresList" placeholder="Proveedor o cliente">
+            <datalist id="proveedoresList"></datalist>
+          </div>
+          <div class="form-group"><label>Producto *</label>
+            <input type="text" id="regProducto" list="productosList" placeholder="Nombre del producto">
+            <datalist id="productosList"></datalist>
+          </div>
+          <div class="form-group"><label>Presentación</label><input type="text" id="regPresentacion" placeholder="FRASCO x100 TAB"></div>
+          <div class="form-group"><label>Forma Farmacéutica</label>
+            <select id="regForma">
+              <option value="">Seleccionar...</option>
+              <option>TABLETA</option><option>CAPSULA</option><option>JARABE</option>
+              <option>SUSPENSION</option><option>AMPOLLA</option><option>CREMA</option>
+              <option>UNGÜENTO</option><option>GEL</option><option>SOLUCION</option>
+              <option>GOTAS</option><option>SPRAY</option><option>OVULO</option>
+              <option>SUPOSITORIO</option><option>PARCHE</option><option>POLVO</option>
+              <option>INYECTABLE</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Lote</label><input type="text" id="regLote" placeholder="L-2024-001"></div>
+          <div class="form-group"><label>Fecha Vencimiento</label><input type="date" id="regVencimiento"></div>
+          <div class="form-group"><label id="cantLabel">Cantidad *</label><input type="number" id="regCantidad" min="0" step="0.01" placeholder="0"></div>
+          <div class="form-group"><label>Costo Unitario ($)</label><input type="number" id="regCosto" min="0" step="0.01" placeholder="0.00" oninput="calcTotal()"></div>
+          <div class="form-group"><label>Costo Total ($)</label><input type="number" id="regTotal" readonly style="background:#f8f9fa"></div>
+          <div class="form-group" style="grid-column:1/-1"><label>Observaciones</label><input type="text" id="regObs" placeholder="Observaciones adicionales"></div>
+        </div>
+        <div style="margin-top:20px;text-align:right">
+          <button class="btn" style="width:auto;padding:10px 30px" onclick="guardarMovimiento()">💾 Guardar Registro</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INVENTARIO -->
+    <div id="tab-inventario" class="tab-content">
+      <div class="card">
+        <h2>📦 Saldo por Producto</h2>
+        <div style="margin-bottom:15px">
+          <input type="text" id="buscarProducto" placeholder="Buscar producto..." oninput="filtrarInventario()" style="padding:8px;border:1px solid #ddd;border-radius:4px;width:300px">
+        </div>
+        <div id="tablaInventario"><div class="loading"><div class="spinner"></div><p>Cargando...</p></div></div>
+      </div>
+    </div>
+
+    <!-- MOVIMIENTOS -->
+    <div id="tab-movimientos" class="tab-content">
+      <div class="card">
+        <h2>📋 Historial de Movimientos</h2>
+        <div style="margin-bottom:15px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="text" id="buscarMov" placeholder="Buscar..." oninput="filtrarMovimientos()" style="padding:8px;border:1px solid #ddd;border-radius:4px;width:200px">
+          <input type="date" id="filtroFechaDesde" onchange="filtrarMovimientos()" style="padding:8px;border:1px solid #ddd;border-radius:4px">
+          <input type="date" id="filtroFechaHasta" onchange="filtrarMovimientos()" style="padding:8px;border:1px solid #ddd;border-radius:4px">
+          <button onclick="exportarExcel()" style="padding:8px 15px;background:#27ae60;color:white;border:none;border-radius:4px;cursor:pointer">📥 Exportar Excel</button>
+        </div>
+        <div id="tablaMovimientos"><div class="loading"><div class="spinner"></div><p>Cargando...</p></div></div>
+      </div>
+    </div>
+
+    <!-- ALERTAS -->
+    <div id="tab-alertas" class="tab-content">
+      <div class="card">
+        <h2>⚠️ Alertas del Sistema</h2>
+        <div id="tablaAlertas"><div class="loading"><div class="spinner"></div><p>Cargando...</p></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// =============================================
+// CONFIGURACIÓN SUPABASE
+// =============================================
+const SUPABASE_URL = 'https://vtabifudlvkqcraklqcq.supabase.co';
+const SUPABASE_ANON_KEY = 'SUPABASE_KEY_PLACEHOLDER';
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// =============================================
+// VARIABLES GLOBALES
+// =============================================
+let currentUser = null;
+let allMovimientos = [];
+let inventarioData = [];
+
+// =============================================
+// AUTENTICACIÓN
+// =============================================
+async function login() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  const errDiv = document.getElementById('loginError');
+  
+  if (!user || !pass) {
+    errDiv.textContent = 'Ingrese usuario y contraseña';
+    errDiv.style.display = 'block';
+    return;
+  }
+  
+  const { data, error } = await supabaseClient
+    .from('usuarios')
+    .select('*')
+    .eq('username', user)
+    .eq('password_hash', pass)
+    .eq('activo', true)
+    .single();
+  
+  if (error || !data) {
+    errDiv.textContent = 'Usuario o contraseña incorrectos';
+    errDiv.style.display = 'block';
+    return;
+  }
+  
+  currentUser = data;
+  document.getElementById('loginSection').style.display = 'none';
+  document.getElementById('appSection').style.display = 'block';
+  document.getElementById('userInfo').textContent = data.nombre_completo + ' (' + data.rol + ')';
+  
+  // Si es digitador, ocultar funciones de admin
+  if (data.rol !== 'admin') {
+    document.getElementById('tabAlertas').style.display = 'none';
+  }
+  
+  actualizarFechaHoy();
+  await inicializarApp();
+}
+
+function logout() {
+  currentUser = null;
+  document.getElementById('loginSection').style.display = 'flex';
+  document.getElementById('appSection').style.display = 'none';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+}
+
+// =============================================
+// INICIALIZACIÓN
+// =============================================
+async function inicializarApp() {
+  setSyncStatus(true, 'Cargando datos...');
+  await Promise.all([
+    cargarMovimientos(),
+    cargarProductosList(),
+    cargarProveedoresList()
+  ]);
+  setSyncStatus(true, 'Conectado - Datos actualizados');
+  document.getElementById('lastSync').textContent = 'Última actualización: ' + new Date().toLocaleTimeString();
+}
+
+function setSyncStatus(online, msg) {
+  const dot = document.getElementById('syncDot');
+  const status = document.getElementById('syncStatus');
+  dot.className = online ? 'online-dot' : 'offline-dot';
+  status.textContent = msg;
+}
+
+function actualizarFechaHoy() {
+  document.getElementById('regFecha').value = new Date().toISOString().split('T')[0];
+}
+
+// =============================================
+// CARGAR DATOS
+// =============================================
+async function cargarMovimientos() {
+  const { data, error } = await supabaseClient
+    .from('movimientos')
+    .select('*')
+    .order('fecha', { ascending: false })
+    .order('created_at', { ascending: false });
+  
+  if (error) { setSyncStatus(false, 'Error de conexión'); return; }
+  
+  allMovimientos = data || [];
+  calcularInventario();
+  renderDashboard();
+  renderInventario();
+  renderMovimientos(allMovimientos);
+  renderAlertas();
+}
+
+async function cargarProductosList() {
+  const { data } = await supabaseClient.from('productos').select('nombre').eq('activo', true);
+  const list = document.getElementById('productosList');
+  list.innerHTML = (data || []).map(p => '<option value="' + p.nombre + '">').join('');
+}
+
+async function cargarProveedoresList() {
+  const { data } = await supabaseClient.from('proveedores').select('nombre').eq('activo', true);
+  const list = document.getElementById('proveedoresList');
+  list.innerHTML = (data || []).map(p => '<option value="' + p.nombre + '">').join('');
+}
+
+// =============================================
+// CALCULAR INVENTARIO (SALDO POR PRODUCTO+LOTE)
+// =============================================
+function calcularInventario() {
+  const inv = {};
+  allMovimientos.forEach(m => {
+    const key = m.producto + '|' + (m.lote || '');
+    if (!inv[key]) {
+      inv[key] = {
+        producto: m.producto,
+        lote: m.lote || '-',
+        presentacion: m.presentacion || '',
+        forma: m.forma_farmaceutica || '',
+        vencimiento: m.fecha_vencimiento,
+        entrada: 0, salida: 0, saldo: 0,
+        costo_unitario: m.costo_unitario || 0
+      };
+    }
+    inv[key].entrada += parseFloat(m.entrada || 0);
+    inv[key].salida += parseFloat(m.salida || 0);
+    inv[key].saldo = inv[key].entrada - inv[key].salida;
+    if (m.costo_unitario) inv[key].costo_unitario = m.costo_unitario;
+    if (m.fecha_vencimiento) inv[key].vencimiento = m.fecha_vencimiento;
+  });
+  inventarioData = Object.values(inv).filter(i => i.saldo > 0);
+}
+
+// =============================================
+// DASHBOARD
+// =============================================
+function renderDashboard() {
+  const hoy = new Date();
+  const en6meses = new Date(hoy); en6meses.setMonth(en6meses.getMonth() + 6);
+  
+  const vencidos = inventarioData.filter(i => i.vencimiento && new Date(i.vencimiento) < hoy);
+  const porVencer = inventarioData.filter(i => i.vencimiento && new Date(i.vencimiento) >= hoy && new Date(i.vencimiento) <= en6meses);
+  const productosUnicos = new Set(inventarioData.map(i => i.producto)).size;
+  
+  document.getElementById('statProductos').textContent = productosUnicos;
+  document.getElementById('statMovimientos').textContent = allMovimientos.length;
+  document.getElementById('statVencidos').textContent = vencidos.length;
+  document.getElementById('statPorVencer').textContent = porVencer.length;
+  
+  if (vencidos.length + porVencer.length > 0) {
+    document.getElementById('tabAlertas').textContent = '⚠️ Alertas (' + (vencidos.length + porVencer.length) + ')';
+  }
+  
+  const ultimos = allMovimientos.slice(0, 10);
+  document.getElementById('ultimosMovimientos').innerHTML = ultimos.length === 0 ? '<p>No hay movimientos</p>' :
+    '<table><tr><th>Fecha</th><th>Producto</th><th>Factura</th><th>Entrada</th><th>Salida</th><th>Costo Total</th></tr>' +
+    ultimos.map(m => '<tr><td>' + m.fecha + '</td><td>' + m.producto + '</td><td>' + (m.numero_factura||'-') + '</td><td style="color:green">' + (m.entrada||0) + '</td><td style="color:red">' + (m.salida||0) + '</td><td>$' + formatNum(m.costo_total) + '</td></tr>').join('') +
+    '</table>';
+}
+
+// =============================================
+// INVENTARIO
+// =============================================
+function renderInventario(datos) {
+  const d = datos || inventarioData;
+  const hoy = new Date();
+  const en6meses = new Date(hoy); en6meses.setMonth(en6meses.getMonth() + 6);
+  
+  document.getElementById('tablaInventario').innerHTML = d.length === 0 ? '<p>No hay datos de inventario</p>' :
+    '<table><tr><th>Producto</th><th>Lote</th><th>Presentación</th><th>Forma Farm.</th><th>Vencimiento</th><th>Entrada</th><th>Salida</th><th>Saldo</th><th>Estado</th></tr>' +
+    d.map(i => {
+      let estado = '<span class="badge badge-success">OK</span>';
+      if (i.vencimiento) {
+        const venc = new Date(i.vencimiento);
+        if (venc < hoy) estado = '<span class="badge badge-danger">VENCIDO</span>';
+        else if (venc <= en6meses) estado = '<span class="badge badge-warning">POR VENCER</span>';
+      }
+      if (i.saldo <= 5) estado += ' <span class="badge badge-warning">STOCK BAJO</span>';
+      return '<tr><td>' + i.producto + '</td><td>' + i.lote + '</td><td>' + i.presentacion + '</td><td>' + i.forma + '</td><td>' + (i.vencimiento||'-') + '</td><td>' + i.entrada + '</td><td>' + i.salida + '</td><td><strong>' + i.saldo.toFixed(2) + '</strong></td><td>' + estado + '</td></tr>';
+    }).join('') + '</table>';
+}
+
+function filtrarInventario() {
+  const q = document.getElementById('buscarProducto').value.toLowerCase();
+  renderInventario(inventarioData.filter(i => i.producto.toLowerCase().includes(q)));
+}
+
+// =============================================
+// MOVIMIENTOS
+// =============================================
+function renderMovimientos(datos) {
+  document.getElementById('tablaMovimientos').innerHTML = datos.length === 0 ? '<p>No hay movimientos</p>' :
+    '<table><tr><th>Fecha</th><th>Factura</th><th>Proveedor/Cliente</th><th>Producto</th><th>Lote</th><th>Vence</th><th>Entrada</th><th>Salida</th><th>Costo Unit.</th><th>Costo Total</th><th>Obs.</th></tr>' +
+    datos.map(m => '<tr><td>' + m.fecha + '</td><td>' + (m.numero_factura||'-') + '</td><td>' + (m.proveedor_cliente||'-') + '</td><td>' + m.producto + '</td><td>' + (m.lote||'-') + '</td><td>' + (m.fecha_vencimiento||'-') + '</td><td style="color:green">' + (m.entrada||0) + '</td><td style="color:red">' + (m.salida||0) + '</td><td>$' + formatNum(m.costo_unitario) + '</td><td>$' + formatNum(m.costo_total) + '</td><td>' + (m.observaciones||'-') + '</td></tr>').join('') +
+    '</table>';
+}
+
+function filtrarMovimientos() {
+  const q = document.getElementById('buscarMov').value.toLowerCase();
+  const desde = document.getElementById('filtroFechaDesde').value;
+  const hasta = document.getElementById('filtroFechaHasta').value;
+  let filtrado = allMovimientos;
+  if (q) filtrado = filtrado.filter(m => m.producto.toLowerCase().includes(q) || (m.numero_factura||'').toLowerCase().includes(q) || (m.proveedor_cliente||'').toLowerCase().includes(q));
+  if (desde) filtrado = filtrado.filter(m => m.fecha >= desde);
+  if (hasta) filtrado = filtrado.filter(m => m.fecha <= hasta);
+  renderMovimientos(filtrado);
+}
+
+// =============================================
+// ALERTAS
+// =============================================
+function renderAlertas() {
+  const hoy = new Date();
+  const en6meses = new Date(hoy); en6meses.setMonth(en6meses.getMonth() + 6);
+  
+  const vencidos = inventarioData.filter(i => i.vencimiento && new Date(i.vencimiento) < hoy);
+  const porVencer = inventarioData.filter(i => i.vencimiento && new Date(i.vencimiento) >= hoy && new Date(i.vencimiento) <= en6meses);
+  const stockBajo = inventarioData.filter(i => i.saldo <= 5);
+  
+  let html = '';
+  if (vencidos.length > 0) {
+    html += '<h3 style="color:#e74c3c;margin-bottom:10px">🔴 Productos Vencidos (' + vencidos.length + ')</h3><table><tr><th>Producto</th><th>Lote</th><th>Saldo</th><th>Fecha Vencimiento</th></tr>' +
+      vencidos.map(i => '<tr style="background:#fde8e8"><td>' + i.producto + '</td><td>' + i.lote + '</td><td>' + i.saldo + '</td><td>' + i.vencimiento + '</td></tr>').join('') + '</table><br>';
+  }
+  if (porVencer.length > 0) {
+    html += '<h3 style="color:#e67e22;margin-bottom:10px">🟡 Por Vencer en 6 meses (' + porVencer.length + ')</h3><table><tr><th>Producto</th><th>Lote</th><th>Saldo</th><th>Fecha Vencimiento</th></tr>' +
+      porVencer.map(i => '<tr style="background:#fef9e7"><td>' + i.producto + '</td><td>' + i.lote + '</td><td>' + i.saldo + '</td><td>' + i.vencimiento + '</td></tr>').join('') + '</table><br>';
+  }
+  if (stockBajo.length > 0) {
+    html += '<h3 style="color:#8e44ad;margin-bottom:10px">🟣 Stock Bajo (≤5 unidades) (' + stockBajo.length + ')</h3><table><tr><th>Producto</th><th>Lote</th><th>Saldo</th></tr>' +
+      stockBajo.map(i => '<tr style="background:#f5eef8"><td>' + i.producto + '</td><td>' + i.lote + '</td><td>' + i.saldo + '</td></tr>').join('') + '</table>';
+  }
+  if (!html) html = '<div style="text-align:center;padding:30px;color:#27ae60"><h3>✅ Sin alertas activas</h3><p>Todo el inventario está en orden</p></div>';
+  document.getElementById('tablaAlertas').innerHTML = html;
+}
+
+// =============================================
+// GUARDAR MOVIMIENTO
+// =============================================
+async function guardarMovimiento() {
+  const tipo = document.getElementById('regTipo').value;
+  const fecha = document.getElementById('regFecha').value;
+  const producto = document.getElementById('regProducto').value.trim();
+  const cantidad = parseFloat(document.getElementById('regCantidad').value) || 0;
+  const alDiv = document.getElementById('regAlert');
+  
+  if (!fecha || !producto || !cantidad) {
+    alDiv.className = 'alert alert-danger';
+    alDiv.textContent = 'Complete los campos obligatorios (Fecha, Producto, Cantidad)';
+    alDiv.style.display = 'block';
+    return;
+  }
+  
+  const costo_unitario = parseFloat(document.getElementById('regCosto').value) || 0;
+  const entrada = tipo === 'entrada' ? cantidad : 0;
+  const salida = tipo === 'salida' ? cantidad : 0;
+  const ajuste_entrada = tipo === 'ajuste' ? cantidad : 0;
+  
+  // Calcular saldo actual
+  const lote = document.getElementById('regLote').value.trim();
+  const saldoActual = calcularSaldoActual(producto, lote);
+  const nuevoSaldo = tipo === 'salida' ? saldoActual - cantidad : 
+                     tipo === 'entrada' ? saldoActual + cantidad : cantidad;
+  
+  const registro = {
+    fecha,
+    numero_factura: document.getElementById('regFactura').value.trim() || null,
+    proveedor_cliente: document.getElementById('regProveedor').value.trim() || null,
+    producto,
+    presentacion: document.getElementById('regPresentacion').value.trim() || null,
+    forma_farmaceutica: document.getElementById('regForma').value || null,
+    lote: lote || null,
+    fecha_vencimiento: document.getElementById('regVencimiento').value || null,
+    entrada: entrada || ajuste_entrada,
+    salida: salida,
+    saldo: nuevoSaldo,
+    costo_unitario: costo_unitario,
+    costo_total: costo_unitario * cantidad,
+    observaciones: document.getElementById('regObs').value.trim() || null,
+    tipo_movimiento: tipo === 'ajuste' ? 'ajuste' : 'normal',
+    usuario_id: currentUser.id
+  };
+  
+  const { error } = await supabaseClient.from('movimientos').insert([registro]);
+  
+  if (error) {
+    alDiv.className = 'alert alert-danger';
+    alDiv.textContent = 'Error al guardar: ' + error.message;
+    alDiv.style.display = 'block';
+    return;
+  }
+  
+  alDiv.className = 'alert';
+  alDiv.style.background = '#e8f8f5';
+  alDiv.style.color = '#1e8449';
+  alDiv.style.border = '1px solid #27ae60';
+  alDiv.textContent = '✅ Registro guardado exitosamente';
+  alDiv.style.display = 'block';
+  
+  limpiarFormulario();
+  await cargarMovimientos();
+  setTimeout(() => { alDiv.style.display = 'none'; }, 3000);
+}
+
+function calcularSaldoActual(producto, lote) {
+  let saldo = 0;
+  allMovimientos.forEach(m => {
+    if (m.producto === producto && (m.lote || '') === (lote || '')) {
+      saldo += parseFloat(m.entrada || 0) - parseFloat(m.salida || 0);
+    }
+  });
+  return saldo;
+}
+
+function limpiarFormulario() {
+  ['regFactura','regProveedor','regProducto','regPresentacion','regLote','regObs'].forEach(id => document.getElementById(id).value = '');
+  ['regCantidad','regCosto','regTotal'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('regForma').value = '';
+  document.getElementById('regVencimiento').value = '';
+  document.getElementById('regTipo').value = 'entrada';
+  actualizarFechaHoy();
+}
+
+function calcTotal() {
+  const costo = parseFloat(document.getElementById('regCosto').value) || 0;
+  const cant = parseFloat(document.getElementById('regCantidad').value) || 0;
+  document.getElementById('regTotal').value = (costo * cant).toFixed(2);
+}
+
+// =============================================
+// EXPORTAR EXCEL
+// =============================================
+function exportarExcel() {
+  const rows = [['Fecha','Factura','Proveedor/Cliente','Producto','Presentacion','Forma Farm.','Lote','Vencimiento','Entrada','Salida','Saldo','Costo Unit.','Costo Total','Observaciones']];
+  allMovimientos.forEach(m => rows.push([m.fecha,m.numero_factura,m.proveedor_cliente,m.producto,m.presentacion,m.forma_farmaceutica,m.lote,m.fecha_vencimiento,m.entrada,m.salida,m.saldo,m.costo_unitario,m.costo_total,m.observaciones]));
+  const csv = rows.map(r => r.map(c => '"'+(c||'')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'inventario_nissi_' + new Date().toISOString().split('T')[0] + '.csv';
+  a.click();
+}
+
+// =============================================
+// NAVEGACIÓN
+// =============================================
+function showTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+}
+
+// =============================================
+// UTILIDADES
+// =============================================
+function formatNum(n) { return parseFloat(n||0).toLocaleString('es-CO', {minimumFractionDigits:0, maximumFractionDigits:0}); }
+
+document.getElementById('regCantidad').addEventListener('input', calcTotal);
+document.getElementById('regTipo').addEventListener('change', function() {
+  document.getElementById('cantLabel').textContent = this.value === 'salida' ? 'Cantidad a Salida *' : this.value === 'ajuste' ? 'Cantidad Ajuste *' : 'Cantidad Entrada *';
+});
+</script>
+</body>
+</html>
